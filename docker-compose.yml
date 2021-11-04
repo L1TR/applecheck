@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  instore:
+    image: applecheck
+    build:
+      context: .
+      dockerfile: Dockerfile
