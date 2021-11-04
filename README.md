@@ -1,4 +1,4 @@
-# AppleStore PickUp Checker Telegram Bot
+# Apple store pickup availability informer Telegram Bot
 Build: <code>docker build -t applecheck .</code>
 
 Save to the file: <code>docker save applecheck > applecheck.tar</code>
