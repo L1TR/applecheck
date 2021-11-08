@@ -1,15 +1,17 @@
 import requests
 import re
-from common.config import TELEGRAM_TOKEN
+from common.config import TELEGRAM_TOKEN, PICKUP_AVAILABILITY
 from common.runner import Runner
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from common.consts import PRODUCT_CODE_TO_NAME
 
 
 class TelegramBot(object):
     def __init__(self, chatId):
         self.token = TELEGRAM_TOKEN
+        self.productsToCheck = PICKUP_AVAILABILITY
         self.chatId = str(chatId)
-        self.runner = Runner(resultHandler=self.send)
+        self.runner = Runner(resultHandler=self.send, productsToCheck=self.productsToCheck)
         self.running = False
 
     def send(self, log):
@@ -38,7 +40,7 @@ class TelegramFarm(object):
         else:
             self.bots[chat_id] = TelegramBot(chatId=chat_id)
             if not silent:
-                context.bot.send_message(chat_id=chat_id, text="""Hi, 
+                context.bot.send_message(chat_id=chat_id, text="""Hi,
                 1. To start send '/run {zip code}
                 2. To stop - just send /stop
                 3. To check iteration id - /ping""")
@@ -64,12 +66,45 @@ class TelegramFarm(object):
         if chat_id in self.bots:
             bot = self.bots[chat_id]
             bot.stop()
+            context.bot.send_message(chat_id=chat_id, text=f"Stopped for zip '{bot.runner.zip}'")
 
     def ping(self, update, context):
         chat_id = update.effective_chat.id
         if chat_id in self.bots:
             bot = self.bots[chat_id]
-            context.bot.send_message(chat_id=chat_id, text=f"Completed iterations: {bot.runner.timesChecked}")
+            context.bot.send_message(chat_id=chat_id, text=f"Completed checks: {bot.runner.timesChecked}")
+
+    def info(self, update, context):
+        chat_id = update.effective_chat.id
+        if chat_id in self.bots:
+            bot = self.bots[chat_id]
+            if bot.running:
+                res = '\n'.join(["{} available in {} stores".format(PRODUCT_CODE_TO_NAME.get(p, p), bot.runner.availabilityStates.get(p, 0)) for p in bot.productsToCheck])
+                context.bot.send_message(chat_id=chat_id, text=f"Current state for products:\n {res}")
+            else:
+                context.bot.send_message(chat_id=chat_id, text=f"Doing nothing. Send /run zip to start")
+
+    def add(self, update, context):
+        chat_id = update.effective_chat.id
+        if chat_id in self.bots:
+            bot = self.bots[chat_id]
+            item = update.message.text.split(' ')[1]
+            if item not in bot.productsToCheck:
+                bot.productsToCheck.append(item)
+                context.bot.send_message(chat_id=chat_id, text=f"Added product code '{item}'")
+            else:
+                context.bot.send_message(chat_id=chat_id, text=f"This product already in your list")
+
+    def remove(self, update, context):
+        chat_id = update.effective_chat.id
+        if chat_id in self.bots:
+            bot = self.bots[chat_id]
+            item = update.message.text.split(' ')[1]
+            if item in bot.productsToCheck:
+                bot.productsToCheck.remove(item)
+                context.bot.send_message(chat_id=chat_id, text=f"Removed product code '{item}'")
+            else:
+                context.bot.send_message(chat_id=chat_id, text=f"You have no this product code in your config")
 
 
 def run():
@@ -80,5 +115,8 @@ def run():
     dp.add_handler(CommandHandler("run", farm.run))
     dp.add_handler(CommandHandler("stop", farm.stop))
     dp.add_handler(CommandHandler("ping", farm.ping))
+    dp.add_handler(CommandHandler("add", farm.add))
+    dp.add_handler(CommandHandler("remove", farm.remove))
+    dp.add_handler(CommandHandler("info", farm.info))
     updater.start_polling()
     updater.idle()

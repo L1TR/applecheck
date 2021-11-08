@@ -1,6 +1,7 @@
 import requests
 from collections import defaultdict
 from common.consts import APPLE_STORE_FULFILLMENT_URL
+from common.helpers import translated_names
 
 class AppleChecker(object):
     def __init__(self):
@@ -9,6 +10,7 @@ class AppleChecker(object):
             }
         self.url = APPLE_STORE_FULFILLMENT_URL
 
+    # @translated_names
     def checkState(self, zipCode, toCheck):
         available_for_pickup = defaultdict(list)
         params = {'location': zipCode}

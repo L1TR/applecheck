@@ -1,20 +1,18 @@
-import sched, time
 from collections import defaultdict
 from apple_store.apple_checker import AppleChecker
-from common.config import PICKUP_AVAILABILITY
+from common.consts import PRODUCT_CODE_TO_NAME
 import threading
 
 
 class Runner(object):
-    def __init__(self, resultHandler):
+    def __init__(self, resultHandler, productsToCheck):
         self.telegramHandler = resultHandler
         self.appleChecker = AppleChecker()
-        self.availabilityStates = defaultdict(int)
-        self.scheduler = None
         self.timesChecked = 0
         self.zip = None
-        self.backgroundThread = None
-        self.eventId = None
+        self.runningEvent = None
+        self.productsToCheck = productsToCheck
+        self.availabilityStates = { k:0 for k in productsToCheck}
 
     def checkState(self):
         """
@@ -23,43 +21,43 @@ class Runner(object):
         print("Checking --- START")
         if not self.zip:
             self.telegramHandler("Enter valid zip code to start")
-        available = self.appleChecker.checkState(self.zip, toCheck=PICKUP_AVAILABILITY)
+        available = self.appleChecker.checkState(self.zip, toCheck=self.productsToCheck)
         result = []
         if available is None:
             print('Error')
             result.append('Something wrong with Apple store cheker')
-        if available:
-            for k, v in available.items():
+        else:
+            for k in self.productsToCheck:
+                v = available.get(k, [])
                 l = len(v)
                 if self.availabilityStates[k] != l:
-                    self.availabilityStates[k] = l
+                    product_name = PRODUCT_CODE_TO_NAME.get(k, k)
                     if l > 1:
-                        result.append(f"{k} available in {l} stores")
+                        result.append(f"{product_name} is available in {l} stores")
+                    elif l == 1:
+                        result.append(f"{product_name} is available in {v[0]}")
                     else:
-                        result.append(f"{k} available in {v[0]}")
+                        result.append(f"{product_name} is not available")
+        self.availabilityStates = {k:len(available.get(k, [])) for k in self.productsToCheck}
         if result:
             self.telegramHandler('\n'.join(result))
         self.timesChecked += 1
         print("Checking --- END")
 
-    def runWithScheduler(self):
-        self.scheduler = sched.scheduler(time.time, time.sleep)
-        def run(sc):
-            self.checkState()
-            self.eventId = self.scheduler.enter(60, 1, run, (sc,))
-
-        self.scheduler.enter(2, 1, run, (self.scheduler,))
-        self.scheduler.run()
-
     def runCheck(self, zip):
         self.zip = zip
         self.telegramHandler(f"Starting Apple store checker for ZIP code '{self.zip}'")
-        self.backgroundThread = threading.Thread(name='background', target=self.runWithScheduler)
-        self.backgroundThread.start()
+        def run(run_stop):
+            if not run_stop.is_set():
+                self.checkState()
+                threading.Timer(60, run, [run_stop]).start()
+        self.runningEvent = threading.Event()
+        run(self.runningEvent)
     
     def stopCheck(self):
-        if self.eventId:
-            self.scheduler.cancel(self.eventId)
+        if self.runningEvent:
+            self.runningEvent.set()
+        self.timesChecked = 0
 
 
 def main():
