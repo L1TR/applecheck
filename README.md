@@ -11,3 +11,5 @@ All configuration variables are stored in the src/common/config.py
 2. Change ENV "ITEMS_PICKUP_AVAILABILITY" to check changes in pickup availability
 
 Tested on MacOS and Synology DiskStation
+
+Docker page: https://hub.docker.com/r/l1tr/applepickup
