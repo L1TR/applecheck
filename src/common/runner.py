@@ -30,7 +30,7 @@ class Runner(object):
             for k in self.productsToCheck:
                 v = available.get(k, [])
                 l = len(v)
-                if self.availabilityStates[k] != l:
+                if self.availabilityStates.get(k, 0) != l:
                     product_name = PRODUCT_CODE_TO_NAME.get(k, k)
                     if l > 1:
                         result.append(f"{product_name} is available in {l} stores")
