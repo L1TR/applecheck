@@ -25,7 +25,7 @@ class Runner(object):
         result = []
         if available is None:
             print('Error')
-            result.append('Something wrong with Apple store cheker')
+            result.append('Something wrong with Apple store response. Please check your config')
         else:
             for k in self.productsToCheck:
                 v = available.get(k, [])

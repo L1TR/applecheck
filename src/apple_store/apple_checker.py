@@ -17,8 +17,8 @@ class AppleChecker(object):
         for i, item in enumerate(toCheck):
             params[f'parts.{i}'] = item
 
-        response = requests.get(self.url, params=params)
         try:
+            response = requests.get(self.url, params=params)
             stores = response.json()['body']['content']['pickupMessage']['stores']
             for store in stores:
                 for item in toCheck:
